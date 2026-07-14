@@ -11,30 +11,34 @@ access is **read-only** — the app refuses writes and forces a read-only DB ses
 
 ## Quick start (Windows / PowerShell)
 
-### 1. Start a local database (optional but easy)
+**Prerequisites:** Docker Desktop (for the local DB), Python 3.12+, Node 18+.
+The backend and frontend each keep running, so use **two separate terminals**.
+
+### 1. Start a local database
 ```powershell
-docker compose up -d          # Postgres on localhost:5432, seeded with sample data
+docker compose up -d          # Postgres on localhost:5432, database "appdb", seeded
 ```
 
-### 2. Backend
+### 2. Backend — terminal 1 (from project root)
 ```powershell
 cd backend
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 Copy-Item .env.example .env    # defaults point at the local docker DB
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8000   # http://127.0.0.1:8000
 ```
 
-### 3. Frontend
+### 3. Frontend — terminal 2 (from project root)
 ```powershell
 cd frontend
 npm install
-npm run dev                    # opens http://localhost:5173
+npm run dev                    # serves http://localhost:5173
 ```
 
-Open **http://localhost:5173**. The Vite dev server proxies `/api` to the
-backend on port 8000.
+Open **http://localhost:5173**. The Vite dev server proxies `/api` to the backend
+on port 8000, so **both must be running**. (Prefer a single process? See
+*Build one container* below — FastAPI can serve the built React app on one port.)
 
 ## Point it at your Azure PostgreSQL
 Edit `backend/.env`:
