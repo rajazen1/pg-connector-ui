@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+backend/.env
+
+# Node / Vite
+node_modules/
+frontend/dist/
+backend/app/static/
+
+# OS / editor
+.DS_Store
+.vscode/

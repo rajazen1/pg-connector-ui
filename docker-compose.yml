@@ -1,0 +1,19 @@
+# Local PostgreSQL for development/testing.
+# Start with:  docker compose up -d
+# Then point backend/.env at it (host=localhost, db=appdb, user/pass=postgres).
+services:
+  postgres:
+    image: postgres:16
+    container_name: pg-connector-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: appdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./db/seed.sql:/docker-entrypoint-initdb.d/seed.sql:ro
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
