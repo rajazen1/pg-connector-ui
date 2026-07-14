@@ -202,7 +202,7 @@ button.run:disabled { opacity: .6; cursor: default; transform: none; }
 .table-wrap { overflow: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); max-height: calc(100vh - 420px); }
 .link-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .link-table th {
-  position: sticky; top: 0; z-index: 1;
+  position: sticky; top: 0; z-index: 3;
   text-align: left; padding: 10px 12px; background: var(--surface);
   font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
   color: var(--muted); border-bottom: 1px solid var(--border); white-space: nowrap;
@@ -214,8 +214,24 @@ button.run:disabled { opacity: .6; cursor: default; transform: none; }
 }
 .link-table tbody tr:last-child td { border-bottom: none; }
 .link-table tbody tr:hover td { background: #fafbfc; }
-.link-table .rownum { color: var(--muted); text-align: right; user-select: none; font-family: var(--font-sans); }
+.link-table .rownum { color: var(--muted); text-align: right; user-select: none; font-family: var(--font-sans); width: 52px; min-width: 52px; max-width: 52px; }
 .null { color: var(--muted); font-style: italic; }
+
+/* Frozen columns (row-# + first data column) while scrolling right */
+.link-table .frozen-num { position: sticky; left: 0; z-index: 2; background: var(--surface); }
+.link-table thead th.frozen-num { z-index: 5; }
+.link-table .frozen-first { position: sticky; z-index: 2; background: var(--surface); box-shadow: 1px 0 0 var(--border); }
+.link-table thead th.frozen-first { z-index: 5; }
+.link-table tbody tr:hover td.frozen-num,
+.link-table tbody tr:hover td.frozen-first { background: #fafbfc; }
+
+/* Column resize handle (right edge of each header cell) */
+.link-table th.sortable { position: sticky; } /* keep sticky-top; handle is absolute within */
+.col-resize {
+  position: absolute; top: 0; right: 0; width: 8px; height: 100%;
+  cursor: col-resize; user-select: none;
+}
+.col-resize:hover { background: var(--primary); opacity: .35; }
 
 /* ── States ────────────────────────────────────────────────────────────────── */
 .error-msg {
@@ -264,3 +280,32 @@ button.run:disabled { opacity: .6; cursor: default; transform: none; }
   font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;
 }
 .try-btn:hover { background: var(--accent-soft); }
+
+/* ── Results grid: filter / sort / paginate / export ───────────────────────── */
+.rt { display: flex; flex-direction: column; gap: 10px; }
+.rt-toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.rt-filter {
+  flex: 0 1 260px; background: var(--surface); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 7px 12px; font-size: 13px; font-family: var(--font-sans);
+}
+.rt-filter:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(91,83,230,.12); }
+.rt-count { font-size: 12px; color: var(--text-muted); font-weight: 600; }
+.rt-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rt-pagesize { font-size: 12px; color: var(--text-muted); display: inline-flex; align-items: center; gap: 6px; }
+.rt-pagesize select {
+  border: 1px solid var(--border); border-radius: 8px; padding: 5px 8px;
+  background: var(--surface); color: var(--text); font-family: inherit; font-size: 12px; cursor: pointer;
+}
+.rt-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text-muted);
+  border-radius: 8px; padding: 6px 12px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit;
+}
+.rt-btn:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+.rt-btn:disabled { opacity: .4; cursor: default; }
+.link-table th.sortable { cursor: pointer; user-select: none; }
+.link-table th.sortable:hover { color: var(--primary); }
+.link-table th.sortable svg { vertical-align: -1px; margin-left: 4px; }
+.rt-pager { display: flex; align-items: center; gap: 8px; justify-content: center; padding-top: 2px; }
+.rt-pageinfo { font-size: 12px; color: var(--text-muted); font-weight: 600; margin: 0 6px; }
