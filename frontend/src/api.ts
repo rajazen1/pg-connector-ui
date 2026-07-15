@@ -29,22 +29,36 @@ export interface ApiError {
   sql?: string;
 }
 
+// Parse a response defensively: read text, then try JSON. A gateway/ingress
+// error (ACA 502/503/504 during a restart or rollout) returns an HTML page, so
+// res.json() would throw a cryptic "Unexpected token '<'" and hide the real
+// status. Fall back to the HTTP status line instead.
+async function parse<T>(res: Response): Promise<T> {
+  const text = await res.text();
+  let data: unknown;
+  try {
+    data = text ? JSON.parse(text) : undefined;
+  } catch {
+    data = undefined; // non-JSON body (e.g. an ingress error page)
+  }
+  if (!res.ok) {
+    const msg = (data as ApiError | undefined)?.error ?? `HTTP ${res.status} ${res.statusText}`.trim();
+    throw new Error(msg);
+  }
+  return data as T;
+}
+
 async function post<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(path, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error((data as ApiError).error ?? `HTTP ${res.status}`);
-  return data as T;
+  return parse<T>(res);
 }
 
 async function get<T>(path: string): Promise<T> {
-  const res = await fetch(path);
-  const data = await res.json();
-  if (!res.ok) throw new Error((data as ApiError).error ?? `HTTP ${res.status}`);
-  return data as T;
+  return parse<T>(await fetch(path));
 }
 
 async function put<T>(path: string, body: unknown): Promise<T> {
@@ -53,9 +67,7 @@ async function put<T>(path: string, body: unknown): Promise<T> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error((data as ApiError).error ?? `HTTP ${res.status}`);
-  return data as T;
+  return parse<T>(res);
 }
 
 export interface AppConfig {

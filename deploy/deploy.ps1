@@ -52,9 +52,13 @@ $ACR_PASS = az acr credential show -n $ACR --query "passwords[0].value" -o tsv
 
 # ── 2. Assemble secrets + env vars ──────────────────────────────────────────
 $secrets = @("pgpassword=$($env:PGPASSWORD)")
+# DEPLOY_MODE=vnet: container + DB share the VNet (no VPN in the path), so the
+#   connection-status card reports the honest 'in-vnet' state.
+# MAX_ROWS=10000: match the intended cap (config.py default is 1000).
 $envvars = @(
   "PGHOST=$PGHOST", "PGUSER=$PGUSER", "PGDATABASE=$PGDATABASE",
-  "PGSSLMODE=$PGSSLMODE", "PGPASSWORD=secretref:pgpassword"
+  "PGSSLMODE=$PGSSLMODE", "PGPASSWORD=secretref:pgpassword",
+  "DEPLOY_MODE=vnet", "MAX_ROWS=10000"
 )
 if ($LLM_ENABLED -eq "true") {
   $secrets += "llmkey=$($env:LLM_API_KEY)"

@@ -99,9 +99,11 @@ def _run(sql: str, params=None, max_rows: int | None = None):
     read-only session with a statement timeout. Returns (columns, rows, truncated).
     max_rows=None fetches everything the statement produces.
     """
-    pool = _get_pool()
-    conn = pool.getconn()
+    conn = None
+    pool = None
     try:
+        pool = _get_pool()          # may raise OperationalError if the DB is unreachable
+        conn = pool.getconn()       # may raise PoolError if the pool is exhausted
         conn.autocommit = True
         with conn.cursor() as cur:
             cur.execute("SET default_transaction_read_only = on")
@@ -122,9 +124,12 @@ def _run(sql: str, params=None, max_rows: int | None = None):
                 rows = rows[:max_rows]
             return columns, [_serialize_row(r) for r in rows], truncated
     except psycopg2.Error as exc:
+        # Covers connect failures (OperationalError) and pool exhaustion
+        # (PoolError) as well as query errors — all surface as a clean 400.
         raise QueryError(str(exc).strip()) from exc
     finally:
-        pool.putconn(conn)
+        if conn is not None and pool is not None:
+            pool.putconn(conn)
 
 
 def run_query(sql: str) -> dict:
