@@ -155,10 +155,16 @@ def unit_llm_and_idents():
 # ─────────────────────────────────────────────────────────────────────────────
 def unit_provider_shapes():
     section("UNIT · LLM provider request shapes (intercepted)")
-    saved = (settings.LLM_PROVIDER, settings.LLM_MODEL, settings.LLM_API_KEY,
-             settings.AZURE_OPENAI_ENDPOINT, settings.AZURE_OPENAI_DEPLOYMENT)
+    from app import runtime as rt  # llm.py reads config from runtime.llm()
     real_post = llm.httpx.post
+    real_llm = rt.llm
     captured = {}
+
+    def set_cfg(**kw):
+        base = {"enabled": True, "provider": "mock", "model": "", "apiKey": "FAKE",
+                "azureEndpoint": "", "azureDeployment": "", "azureApiVersion": "2024-06-01"}
+        base.update(kw)
+        rt.llm = lambda: base
 
     class R:
         status_code = 200
@@ -175,10 +181,8 @@ def unit_provider_shapes():
 
     try:
         # Azure OpenAI
-        settings.LLM_PROVIDER = "azure_openai"
-        settings.LLM_API_KEY = "FAKE"
-        settings.AZURE_OPENAI_ENDPOINT = "https://res.openai.azure.com"
-        settings.AZURE_OPENAI_DEPLOYMENT = "dep"
+        set_cfg(provider="azure_openai", apiKey="FAKE",
+                azureEndpoint="https://res.openai.azure.com", azureDeployment="dep")
         llm.httpx.post = lambda url, headers=None, json=None, timeout=None: (
             captured.update(url=url, headers=headers, body=json) or R("openai"))
         llm.generate_sql("count spans", "schema")
@@ -187,16 +191,14 @@ def unit_provider_shapes():
         ok("azure no model in body", "model" not in captured["body"])
 
         # Groq (OpenAI-compatible)
-        settings.LLM_PROVIDER = "groq"
-        settings.LLM_MODEL = "llama-3.3-70b-versatile"
+        set_cfg(provider="groq", model="llama-3.3-70b-versatile", apiKey="FAKE")
         llm.generate_sql("count spans", "schema")
         ok("groq URL", captured["url"] == "https://api.groq.com/openai/v1/chat/completions")
         ok("groq bearer auth", captured["headers"].get("Authorization", "").startswith("Bearer "))
         ok("groq model in body", captured["body"].get("model") == "llama-3.3-70b-versatile")
 
         # Gemini
-        settings.LLM_PROVIDER = "gemini"
-        settings.LLM_MODEL = "gemini-2.5-flash"
+        set_cfg(provider="gemini", model="gemini-2.5-flash", apiKey="FAKE")
         llm.httpx.post = lambda url, headers=None, json=None, timeout=None: (
             captured.update(url=url, headers=headers, body=json) or R("gemini"))
         llm.generate_sql("count spans", "schema")
@@ -212,7 +214,7 @@ def unit_provider_shapes():
             def json(self):
                 return {}
 
-        settings.LLM_PROVIDER = "groq"
+        set_cfg(provider="groq", apiKey="FAKE")
         llm.httpx.post = lambda url, headers=None, json=None, timeout=None: Err()
         try:
             llm.generate_sql("x", "y")
@@ -221,8 +223,7 @@ def unit_provider_shapes():
             ok("401 raises with body", "bad key" in str(e))
     finally:
         llm.httpx.post = real_post
-        (settings.LLM_PROVIDER, settings.LLM_MODEL, settings.LLM_API_KEY,
-         settings.AZURE_OPENAI_ENDPOINT, settings.AZURE_OPENAI_DEPLOYMENT) = saved
+        rt.llm = real_llm
 
 
 # ─────────────────────────────────────────────────────────────────────────────

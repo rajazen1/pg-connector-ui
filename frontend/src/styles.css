@@ -200,6 +200,7 @@ button.run:disabled { opacity: .6; cursor: default; transform: none; }
 }
 
 .table-wrap { overflow: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); max-height: calc(100vh - 420px); }
+.table-wrap.loading { opacity: .5; pointer-events: none; transition: opacity .1s; }
 .link-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .link-table th {
   position: sticky; top: 0; z-index: 3;
@@ -280,6 +281,51 @@ button.run:disabled { opacity: .6; cursor: default; transform: none; }
   font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;
 }
 .try-btn:hover { background: var(--accent-soft); }
+
+/* ── Config forms ──────────────────────────────────────────────────────────── */
+.cfg-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 14px; }
+.cfg-field { display: flex; flex-direction: column; gap: 5px; }
+.cfg-field span { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+.cfg-field input, .cfg-field select {
+  background: var(--surface); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 8px 11px; font-size: 13px; font-family: var(--font-sans);
+}
+.cfg-field input:focus, .cfg-field select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(91,83,230,.12); }
+.cfg-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.cfg-actions .run { margin-top: 0; }
+.cfg-msg { font-size: 13px; font-weight: 600; }
+.cfg-msg.ok { color: var(--success); }
+.cfg-msg.bad { color: var(--danger); }
+.cfg-note {
+  margin-top: 12px; font-size: 12px; color: var(--text-muted); line-height: 1.6;
+  background: var(--surface-sunken); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 10px 12px;
+}
+
+/* Live connection status pill */
+.status-pill {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 600; padding: 8px 14px; border-radius: 20px;
+  border: 1px solid var(--border); background: var(--surface-sunken);
+}
+.status-pill .dot { width: 9px; height: 9px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+.status-pill .live-tag {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--muted); border: 1px solid var(--border); border-radius: 6px; padding: 1px 6px;
+}
+.status-pill.ok      { color: var(--success); background: var(--success-bg); border-color: transparent; }
+.status-pill.warn    { color: var(--warning); background: var(--warning-bg); border-color: transparent; }
+.status-pill.bad     { color: var(--danger);  background: var(--danger-bg);  border-color: transparent; }
+.status-pill.na      { color: var(--text-muted); }
+.status-pill.checking{ color: var(--muted); }
+.status-pill.ok .dot { animation: pulse-dot 1.6s ease-in-out infinite; }
+@keyframes pulse-dot { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
+.status-row { display: flex; align-items: center; gap: 8px; }
+.status-info { color: var(--muted); cursor: help; flex-shrink: 0; }
+.status-info:hover { color: var(--primary); }
+.status-explain { margin: 8px 0 0; font-size: 12px; color: var(--text-muted); line-height: 1.6; }
+.status-explain b { color: var(--text); }
 
 /* ── Results grid: filter / sort / paginate / export ───────────────────────── */
 .rt { display: flex; flex-direction: column; gap: 10px; }

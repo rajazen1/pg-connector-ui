@@ -7,11 +7,13 @@ import {
   IconPlayerPlayFilled,
   IconCompass,
   IconBook2,
+  IconSettings,
 } from "@tabler/icons-react";
 import { api, type QueryResult, type Health } from "./api";
 import ResultsTable from "./components/ResultsTable";
 import SchemaSidebar from "./components/SchemaSidebar";
 import Guide from "./components/Guide";
+import Config from "./components/Config";
 
 const QUICK = [
   "show tables",
@@ -21,7 +23,7 @@ const QUICK = [
   "list schemas",
 ];
 
-type View = "explorer" | "guide";
+type View = "explorer" | "guide" | "config";
 export type Mode = "ask" | "sql";
 
 export default function App() {
@@ -34,9 +36,25 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [health, setHealth] = useState<Health | null>(null);
   const [navOpen, setNavOpen] = useState(true);
+  const [runId, setRunId] = useState(0); // bumps per query → remounts the results grid
+  const [online, setOnline] = useState(true);
 
+  // Heartbeat: poll health; if the browser can't reach the backend, the badge
+  // flips to "connection lost" (the honest signal when the VPN/network drops).
   useEffect(() => {
-    api.health().then(setHealth).catch(() => setHealth(null));
+    let fails = 0;
+    const tick = async () => {
+      try {
+        setHealth(await api.health());
+        setOnline(true);
+        fails = 0;
+      } catch {
+        if (++fails >= 2) setOnline(false);
+      }
+    };
+    tick();
+    const id = window.setInterval(tick, 8000);
+    return () => window.clearInterval(id);
   }, []);
 
   // Core executor — explicit params so callers don't fight React's async state.
@@ -51,6 +69,7 @@ export default function App() {
       else if (ai && health?.aiEnabled) r = await api.ai(value);
       else r = await api.ask(value);
       setResult(r);
+      setRunId((n) => n + 1);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setResult(null);
@@ -92,15 +111,23 @@ export default function App() {
           <IconMenu2 size={18} />
         </button>
         <div>
-          <div className="page-name">{view === "guide" ? "Guide" : "Database Explorer"}</div>
+          <div className="page-name">
+            {view === "guide" ? "Guide" : view === "config" ? "Configuration" : "Database Explorer"}
+          </div>
           <div className="page-sub">
             {view === "guide"
               ? "How to use PG Connector"
+              : view === "config"
+              ? "Connect a database & manage AI settings"
               : "Ask questions about your PostgreSQL data"}
           </div>
         </div>
-        <div className={`conn-badge ${health?.ok ? "up" : "down"}`}>
-          {health?.ok ? `● ${health.database} @ ${health.host}` : "● not connected"}
+        <div className={`conn-badge ${!online ? "down" : health?.ok ? "up" : "down"}`}>
+          {!online
+            ? "● connection lost"
+            : health?.ok
+            ? `● ${health.database} @ ${health.host}`
+            : "● not connected"}
         </div>
       </header>
 
@@ -132,6 +159,13 @@ export default function App() {
                 <IconBook2 size={18} />
                 <span className="label">Guide</span>
               </button>
+              <button
+                className={"nav-item" + (view === "config" ? " active" : "")}
+                onClick={() => setView("config")}
+              >
+                <IconSettings size={18} />
+                <span className="label">Config</span>
+              </button>
             </div>
 
             <SchemaSidebar onPick={pick} />
@@ -143,6 +177,8 @@ export default function App() {
           <div className="page">
             {view === "guide" ? (
               <Guide aiEnabled={!!health?.aiEnabled} onTry={tryExample} />
+            ) : view === "config" ? (
+              <Config onSaved={() => api.health().then(setHealth).catch(() => {})} />
             ) : (
               <>
                 <div className="card">
@@ -220,12 +256,11 @@ export default function App() {
                 {result && (
                   <div className="card">
                     <div className="result-meta">
-                      <span className="meta-pill">{result.rowCount} rows</span>
+                      <span className="meta-pill">{(result.total ?? result.rowCount).toLocaleString()} rows</span>
                       <span className="meta-pill">{result.elapsedMs} ms</span>
-                      {result.truncated && <span className="meta-pill warn">truncated</span>}
                       <code title="SQL that ran">{result.sql}</code>
                     </div>
-                    <ResultsTable result={result} />
+                    <ResultsTable key={runId} result={result} />
                   </div>
                 )}
 

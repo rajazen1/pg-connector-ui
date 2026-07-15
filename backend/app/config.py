@@ -25,8 +25,12 @@ class Settings:
     PGSSLMODE: str = os.environ.get("PGSSLMODE", "prefer")
 
     # --- Query safety / limits ---
-    MAX_ROWS: int = _int("MAX_ROWS", 1000)
+    MAX_ROWS: int = _int("MAX_ROWS", 1000)          # hard cap on rows per response / page
+    DEFAULT_PAGE_SIZE: int = _int("DEFAULT_PAGE_SIZE", 100)  # server-side pagination page size
     QUERY_TIMEOUT_SECONDS: int = _int("QUERY_TIMEOUT_SECONDS", 15)
+
+    # Deployment topology for the connection-status flag: local | vnet
+    DEPLOY_MODE: str = os.environ.get("DEPLOY_MODE", "local")
 
     # --- CORS (comma separated origins for the Vite dev server) ---
     CORS_ORIGINS: list[str] = [

@@ -13,8 +13,7 @@ import re
 
 import httpx
 
-from . import questions
-from .config import settings
+from . import questions, runtime
 from .db import run_query
 
 SYSTEM_PROMPT = (
@@ -53,18 +52,19 @@ def _clean_sql(text: str) -> str:
 
 def generate_sql(question: str, schema_text: str) -> str:
     """Dispatch to the configured provider and return generated SQL."""
-    provider = settings.LLM_PROVIDER
+    cfg = runtime.llm()
+    provider = cfg["provider"]
     user = f"{schema_text}\n\nQuestion: {question}\nSQL:"
 
     if provider == "mock":
         return _mock(question)
     if provider == "anthropic":
-        return _clean_sql(_anthropic(user))
+        return _clean_sql(_anthropic(user, cfg))
     if provider == "gemini":
-        return _clean_sql(_gemini(user))
+        return _clean_sql(_gemini(user, cfg))
     if provider in ("openai", "azure_openai", "groq"):
-        return _clean_sql(_openai_compatible(user, provider))
-    raise ValueError(f"Unknown LLM_PROVIDER: {provider!r}")
+        return _clean_sql(_openai_compatible(user, provider, cfg))
+    raise ValueError(f"Unknown LLM provider: {provider!r}")
 
 
 # --- Providers ---------------------------------------------------------------
@@ -77,16 +77,16 @@ def _post(url: str, headers: dict, body: dict) -> dict:
     return resp.json()
 
 
-def _anthropic(user: str) -> str:
+def _anthropic(user: str, cfg: dict) -> str:
     data = _post(
         "https://api.anthropic.com/v1/messages",
         {
-            "x-api-key": settings.LLM_API_KEY,
+            "x-api-key": cfg["apiKey"],
             "anthropic-version": "2023-06-01",
             "content-type": "application/json",
         },
         {
-            "model": settings.LLM_MODEL,
+            "model": cfg["model"],
             "max_tokens": 500,
             "system": SYSTEM_PROMPT,
             "messages": [{"role": "user", "content": user}],
@@ -95,19 +95,19 @@ def _anthropic(user: str) -> str:
     return data["content"][0]["text"]
 
 
-def _openai_compatible(user: str, provider: str) -> str:
+def _openai_compatible(user: str, provider: str, cfg: dict) -> str:
     """OpenAI chat-completions shape — shared by OpenAI, Azure OpenAI and Groq."""
     if provider == "azure_openai":
-        if not settings.AZURE_OPENAI_ENDPOINT or not settings.AZURE_OPENAI_DEPLOYMENT:
+        if not cfg["azureEndpoint"] or not cfg["azureDeployment"]:
             raise RuntimeError(
-                "Azure OpenAI needs AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_DEPLOYMENT."
+                "Azure OpenAI needs an endpoint and a deployment name."
             )
         url = (
-            f"{settings.AZURE_OPENAI_ENDPOINT.rstrip('/')}/openai/deployments/"
-            f"{settings.AZURE_OPENAI_DEPLOYMENT}/chat/completions"
-            f"?api-version={settings.AZURE_OPENAI_API_VERSION}"
+            f"{cfg['azureEndpoint'].rstrip('/')}/openai/deployments/"
+            f"{cfg['azureDeployment']}/chat/completions"
+            f"?api-version={cfg['azureApiVersion']}"
         )
-        headers = {"api-key": settings.LLM_API_KEY, "content-type": "application/json"}
+        headers = {"api-key": cfg["apiKey"], "content-type": "application/json"}
         body = {}  # deployment identifies the model
     else:
         url = (
@@ -116,10 +116,10 @@ def _openai_compatible(user: str, provider: str) -> str:
             else "https://api.openai.com/v1/chat/completions"
         )
         headers = {
-            "Authorization": f"Bearer {settings.LLM_API_KEY}",
+            "Authorization": f"Bearer {cfg['apiKey']}",
             "content-type": "application/json",
         }
-        body = {"model": settings.LLM_MODEL}
+        body = {"model": cfg["model"]}
 
     body.update(
         {
@@ -135,12 +135,12 @@ def _openai_compatible(user: str, provider: str) -> str:
     return data["choices"][0]["message"]["content"]
 
 
-def _gemini(user: str) -> str:
+def _gemini(user: str, cfg: dict) -> str:
     """Google Gemini generateContent API."""
-    model = settings.LLM_MODEL or "gemini-2.5-flash"
+    model = cfg["model"] or "gemini-2.5-flash"
     url = (
         f"https://generativelanguage.googleapis.com/v1beta/models/"
-        f"{model}:generateContent?key={settings.LLM_API_KEY}"
+        f"{model}:generateContent?key={cfg['apiKey']}"
     )
     body = {
         "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
