@@ -196,7 +196,9 @@ button.run:disabled { opacity: .6; cursor: default; transform: none; }
 .result-meta code {
   font-family: var(--font-mono); font-size: 12px; color: var(--accent);
   background: var(--accent-soft); padding: 4px 10px; border-radius: 8px;
-  max-width: 70ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  flex: 1 1 0; min-width: 0;               /* stay inline with the pills, fill the rest of the row */
+  overflow-x: auto; white-space: nowrap;   /* single line, scroll to read the whole query */
+  scrollbar-width: thin;
 }
 
 .table-wrap { overflow: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); max-height: calc(100vh - 420px); }

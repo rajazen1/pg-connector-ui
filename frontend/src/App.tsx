@@ -258,7 +258,7 @@ export default function App() {
                     <div className="result-meta">
                       <span className="meta-pill">{(result.total ?? result.rowCount).toLocaleString()} rows</span>
                       <span className="meta-pill">{result.elapsedMs} ms</span>
-                      <code title="SQL that ran">{result.sql}</code>
+                      <code title={result.sql}>{result.sql}</code>
                     </div>
                     <ResultsTable key={runId} result={result} />
                   </div>
