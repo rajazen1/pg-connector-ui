@@ -6,8 +6,10 @@ import {
   IconDeviceFloppy,
   IconAlertTriangle,
   IconInfoCircle,
+  IconCircleCheck,
+  IconCircleX,
 } from "@tabler/icons-react";
-import { api, type AppConfig, type TestResult, type ConnStatus } from "../api";
+import { api, type AppConfig, type ConnStatus } from "../api";
 
 const PROVIDERS = ["azure_openai", "openai", "groq", "gemini", "anthropic", "mock"];
 const SSL_MODES = ["prefer", "require", "disable", "allow"];
@@ -58,10 +60,12 @@ export default function Config({ onSaved }: { onSaved: () => void }) {
   const [cfg, setCfg] = useState<AppConfig | null>(null);
   const [db, setDb] = useState<DbForm>({ host: "", port: 5432, user: "", password: "", database: "", sslmode: "prefer" });
   const [llm, setLlm] = useState<LlmForm>({ enabled: false, provider: "azure_openai", model: "", apiKey: "", azureEndpoint: "", azureDeployment: "", azureApiVersion: "2024-06-01" });
-  const [test, setTest] = useState<TestResult | null>(null);
   const [testing, setTesting] = useState(false);
-  const [dbMsg, setDbMsg] = useState<string | null>(null);
-  const [llmMsg, setLlmMsg] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [dbResult, setDbResult] = useState<{ ok: boolean; title: string; detail?: string } | null>(null);
+  const [testingLlm, setTestingLlm] = useState(false);
+  const [savingLlm, setSavingLlm] = useState(false);
+  const [llmResult, setLlmResult] = useState<{ ok: boolean; title: string; detail?: string } | null>(null);
   const live = useLiveStatus();
   const pill = pillFor(live);
 
@@ -78,35 +82,70 @@ export default function Config({ onSaved }: { onSaved: () => void }) {
 
   async function testConn() {
     setTesting(true);
-    setTest(null);
+    setDbResult(null);
     try {
-      setTest(await api.testDb(db));
+      const r = await api.testDb(db);
+      setDbResult(
+        r.ok
+          ? { ok: true, title: `Connected to “${r.database}”`, detail: `${db.user}@${db.host}:${db.port}` }
+          : { ok: false, title: "Connection failed", detail: r.error }
+      );
     } catch (e) {
-      setTest({ ok: false, error: e instanceof Error ? e.message : String(e) });
+      setDbResult({ ok: false, title: "Connection failed", detail: e instanceof Error ? e.message : String(e) });
     } finally {
       setTesting(false);
     }
   }
   async function saveDb() {
-    setDbMsg("Saving…");
+    setSaving(true);
+    setDbResult(null);
     try {
       const r = await api.saveDbConfig(db);
-      setDbMsg(r.ok ? `✓ Saved — connected to ${r.database}` : `⚠ Saved, but couldn't connect: ${r.error}`);
+      setDbResult(
+        r.ok
+          ? { ok: true, title: `Saved — connected to “${r.database}”`, detail: `Now serving from ${db.user}@${db.host}:${db.port}` }
+          : { ok: false, title: "Saved, but couldn't connect", detail: r.error }
+      );
       setDb((d) => ({ ...d, password: "" }));
       onSaved();
     } catch (e) {
-      setDbMsg("✗ " + (e instanceof Error ? e.message : String(e)));
+      setDbResult({ ok: false, title: "Save failed", detail: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setSaving(false);
+    }
+  }
+  async function testLlm() {
+    setTestingLlm(true);
+    setLlmResult(null);
+    try {
+      const r = await api.testLlm(llm);
+      setLlmResult(
+        r.ok
+          ? { ok: true, title: `AI works — ${r.provider}${r.model ? ` · ${r.model}` : ""}`, detail: r.sql ? `Sample SQL: ${r.sql}` : undefined }
+          : { ok: false, title: "AI test failed", detail: r.error }
+      );
+    } catch (e) {
+      setLlmResult({ ok: false, title: "AI test failed", detail: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setTestingLlm(false);
     }
   }
   async function saveLlm() {
-    setLlmMsg("Saving…");
+    setSavingLlm(true);
+    setLlmResult(null);
     try {
       const r = await api.saveLlmConfig(llm);
-      setLlmMsg(r.aiEnabled ? "✓ Saved — AI is enabled" : "✓ Saved — AI is off (enable it and add a key)");
+      setLlmResult(
+        r.aiEnabled
+          ? { ok: true, title: "Saved — AI is enabled" }
+          : { ok: true, title: "Saved — AI is off", detail: "Enable it and add a key to use natural-language questions." }
+      );
       setLlm((l) => ({ ...l, apiKey: "" }));
       onSaved();
     } catch (e) {
-      setLlmMsg("✗ " + (e instanceof Error ? e.message : String(e)));
+      setLlmResult({ ok: false, title: "Save failed", detail: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setSavingLlm(false);
     }
   }
 
@@ -143,16 +182,6 @@ export default function Config({ onSaved }: { onSaved: () => void }) {
           {live.kind === "online" && live.data.mode === "in-vnet" &&
             " (Backend is in-VNet — this reflects the server's path, not your laptop's VPN.)"}
         </p>
-        <div className="cfg-actions">
-          <button className="rt-btn" disabled={testing} onClick={testConn}>
-            {testing ? "Testing…" : "Test now"}
-          </button>
-          {test && (
-            <span className={"cfg-msg " + (test.ok ? "ok" : "bad")}>
-              {test.ok ? `✓ Connected to ${test.database}` : `✗ ${test.error}`}
-            </span>
-          )}
-        </div>
         <div className="cfg-note">
           <IconAlertTriangle size={14} style={{ verticalAlign: -2 }} /> For the Azure database
           (<code>*.postgres.database.azure.com</code>), the corporate <b>VPN must be connected</b> —
@@ -181,10 +210,23 @@ export default function Config({ onSaved }: { onSaved: () => void }) {
             </select></label>
         </div>
         <div className="cfg-actions">
-          <button className="rt-btn" disabled={testing} onClick={testConn}>Test</button>
-          <button className="run" onClick={saveDb}><IconDeviceFloppy size={15} style={{ verticalAlign: -3, marginRight: 5 }} />Save &amp; reconnect</button>
-          {dbMsg && <span className={"cfg-msg " + (dbMsg.startsWith("✓") ? "ok" : dbMsg.startsWith("✗") ? "bad" : "")}>{dbMsg}</span>}
+          <button className="rt-btn" disabled={testing || saving} onClick={testConn}>
+            {testing ? "Testing…" : "Test"}
+          </button>
+          <button className="run" onClick={saveDb} disabled={saving || testing}>
+            <IconDeviceFloppy size={15} style={{ verticalAlign: -3, marginRight: 5 }} />
+            {saving ? "Saving…" : "Save & reconnect"}
+          </button>
         </div>
+        {dbResult && (
+          <div className={"conn-result " + (dbResult.ok ? "ok" : "bad")}>
+            {dbResult.ok ? <IconCircleCheck size={20} /> : <IconCircleX size={20} />}
+            <div className="cr-body">
+              <div className="cr-title">{dbResult.title}</div>
+              {dbResult.detail && <div className="cr-detail">{dbResult.detail}</div>}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* LLM config */}
@@ -216,10 +258,25 @@ export default function Config({ onSaved }: { onSaved: () => void }) {
           )}
         </div>
         <div className="cfg-actions">
-          <button className="run" onClick={saveLlm}><IconDeviceFloppy size={15} style={{ verticalAlign: -3, marginRight: 5 }} />Save</button>
-          {llmMsg && <span className={"cfg-msg " + (llmMsg.startsWith("✓") ? "ok" : llmMsg.startsWith("✗") ? "bad" : "")}>{llmMsg}</span>}
+          <button className="rt-btn" disabled={testingLlm || savingLlm} onClick={testLlm}>
+            {testingLlm ? "Testing…" : "Test AI"}
+          </button>
+          <button className="run" onClick={saveLlm} disabled={savingLlm || testingLlm}>
+            <IconDeviceFloppy size={15} style={{ verticalAlign: -3, marginRight: 5 }} />
+            {savingLlm ? "Saving…" : "Save"}
+          </button>
         </div>
+        {llmResult && (
+          <div className={"conn-result " + (llmResult.ok ? "ok" : "bad")}>
+            {llmResult.ok ? <IconCircleCheck size={20} /> : <IconCircleX size={20} />}
+            <div className="cr-body">
+              <div className="cr-title">{llmResult.title}</div>
+              {llmResult.detail && <div className="cr-detail">{llmResult.detail}</div>}
+            </div>
+          </div>
+        )}
         <div className="cfg-note">
+          <b>Test AI</b> tries your provider/model/key without saving — no restart needed.
           Model hints — groq: <code>llama-3.3-70b-versatile</code> · gemini: <code>gemini-2.5-flash</code> ·
           azure/openai: <code>gpt-4o-mini</code>. <code>mock</code> needs no key.
         </div>

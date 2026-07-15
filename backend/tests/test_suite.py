@@ -296,6 +296,39 @@ def integration():
     ok("nextval blocked by read-only session",
        r.status_code == 400 and "read-only" in body.get("error", ""), str(body)[:120])
 
+    # Config endpoints: DB + LLM test/override (overriding the .env fallback)
+    section("INTEGRATION · Config endpoints (test / override)")
+    cfg = _get("/api/config").json()
+    ok("config masks secrets (no raw password/apiKey)",
+       "password" not in cfg["db"] and "apiKey" not in cfg["llm"]
+       and isinstance(cfg["db"].get("passwordSet"), bool)
+       and isinstance(cfg["llm"].get("apiKeySet"), bool), str(cfg)[:120])
+
+    r = _post("/api/config/test-db", {k: cfg["db"][k] for k in ("host", "port", "user", "database", "sslmode")})
+    ok("test-db (saved creds) connects", r.json().get("ok") is True, r.text[:120])
+
+    r = _post("/api/config/test-db", {"host": "nope.invalid.example", "port": 5432,
+                                      "user": "x", "database": "x", "sslmode": "prefer"})
+    jb = r.json()
+    ok("test-db bad host fails gracefully (no hang)", jb.get("ok") is False and bool(jb.get("error")), str(jb)[:120])
+
+    # test-llm: mock always works without a key and returns SQL
+    r = _post("/api/config/test-llm", {"provider": "mock", "model": "", "apiKey": ""}, timeout=90)
+    jb = r.json()
+    ok("test-llm mock ok + returns SQL",
+       jb.get("ok") is True and str(jb.get("sql", "")).lower().startswith(("select", "with")), str(jb)[:120])
+
+    # test-llm: azure with no endpoint/deployment -> clear config error, no crash
+    r = _post("/api/config/test-llm", {"provider": "azure_openai", "model": "gpt-4o-mini",
+                                       "apiKey": "k", "azureEndpoint": "", "azureDeployment": ""})
+    jb = r.json()
+    ok("test-llm azure missing fields errors cleanly",
+       jb.get("ok") is False and "endpoint" in jb.get("error", "").lower(), str(jb)[:120])
+
+    # test-llm must NOT persist: saved provider unchanged after a mock test
+    ok("test-llm does not mutate saved config",
+       _get("/api/config").json()["llm"]["provider"] == cfg["llm"]["provider"], "provider changed!")
+
     # LLM path (only if enabled)
     section("INTEGRATION · LLM natural-language (/api/ai)")
     if not h.get("aiEnabled"):

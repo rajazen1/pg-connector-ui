@@ -50,9 +50,14 @@ def _clean_sql(text: str) -> str:
     return text.rstrip(";").strip()
 
 
-def generate_sql(question: str, schema_text: str) -> str:
-    """Dispatch to the configured provider and return generated SQL."""
-    cfg = runtime.llm()
+def generate_sql(question: str, schema_text: str, cfg: dict | None = None) -> str:
+    """Dispatch to the configured provider and return generated SQL.
+
+    `cfg` defaults to the saved runtime config; pass an explicit one to try
+    unsaved Config-tab values (used by the "Test AI" button).
+    """
+    if cfg is None:
+        cfg = runtime.llm()
     provider = cfg["provider"]
     user = f"{schema_text}\n\nQuestion: {question}\nSQL:"
 

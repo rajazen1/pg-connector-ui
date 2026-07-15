@@ -66,6 +66,7 @@ export interface AppConfig {
   };
 }
 export interface TestResult { ok: boolean; database?: string; version?: string; error?: string }
+export interface LlmTestResult { ok: boolean; provider?: string; model?: string; sql?: string; error?: string }
 
 export interface ConnStatus {
   mode: "local-db" | "vpn-gated" | "in-vnet";
@@ -100,4 +101,6 @@ export const api = {
     put<{ saved: boolean; aiEnabled: boolean }>("/api/config/llm", v),
   testDb: (v: Partial<AppConfig["db"]> & { password?: string }) =>
     post<TestResult>("/api/config/test-db", v),
+  testLlm: (v: Partial<AppConfig["llm"]> & { apiKey?: string }) =>
+    post<LlmTestResult>("/api/config/test-llm", v),
 };

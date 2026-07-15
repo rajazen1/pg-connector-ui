@@ -210,6 +210,24 @@ def test_db_config(body: DbConfig):
     return db.test_connection(kwargs)
 
 
+@app.post("/api/config/test-llm")
+def test_llm_config(body: LlmConfig):
+    """Try the submitted LLM settings WITHOUT saving them: generate SQL for a
+    trivial question and report success + the SQL, or the provider's error."""
+    cfg = runtime.llm().copy()
+    cfg.update(body.model_dump(exclude_none=True))
+    if not cfg.get("apiKey"):
+        cfg["apiKey"] = runtime.llm()["apiKey"]  # blank => keep the saved key
+    if cfg.get("provider") != "mock" and not cfg.get("apiKey"):
+        return {"ok": False, "error": "No API key set for this provider — enter one above."}
+    try:
+        schema = llm.build_schema_context()
+        sql = llm.generate_sql("How many rows are in each table?", schema, cfg)
+    except Exception as exc:  # network / auth / bad model or deployment
+        return {"ok": False, "error": str(exc)}
+    return {"ok": True, "provider": cfg.get("provider"), "model": cfg.get("model"), "sql": sql}
+
+
 # --- Serve the built React app if it has been bundled in (prod/Docker) ---
 _STATIC = Path(__file__).resolve().parent / "static"
 if _STATIC.is_dir():

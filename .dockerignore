@@ -1,0 +1,17 @@
+# Deps & build artifacts — regenerated inside the image
+**/node_modules
+**/.venv
+frontend/dist
+backend/app/static
+
+# Secrets & local config — must NEVER be baked into the image
+**/.env
+backend/config.local.json
+
+# VCS, caches, docs
+.git
+.gitignore
+**/__pycache__
+**/*.pyc
+.pytest_cache
+docs
