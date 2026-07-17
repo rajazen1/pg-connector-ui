@@ -8,6 +8,8 @@ import {
   IconCompass,
   IconBook2,
   IconSettings,
+  IconMoon,
+  IconSun,
 } from "@tabler/icons-react";
 import { api, type QueryResult, type Health } from "./api";
 import ResultsTable from "./components/ResultsTable";
@@ -26,6 +28,30 @@ const QUICK = [
 type View = "explorer" | "guide" | "config";
 export type Mode = "ask" | "sql";
 
+// ── Query history ────────────────────────────────────────────────────────────
+const HISTORY_KEY = "pg-connector-history";
+const MAX_HISTORY = 20;
+
+interface HistoryItem {
+  value: string;
+  mode: Mode;
+}
+
+function loadHistory(): HistoryItem[] {
+  try {
+    return JSON.parse(localStorage.getItem(HISTORY_KEY) ?? "[]");
+  } catch {
+    return [];
+  }
+}
+
+// ── Dark / light theme ───────────────────────────────────────────────────────
+function getInitialTheme(): "light" | "dark" {
+  const stored = localStorage.getItem("pg-connector-theme");
+  if (stored === "dark" || stored === "light") return stored;
+  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
 export default function App() {
   const [view, setView] = useState<View>("explorer");
   const [mode, setMode] = useState<Mode>("ask");
@@ -38,6 +64,15 @@ export default function App() {
   const [navOpen, setNavOpen] = useState(true);
   const [runId, setRunId] = useState(0); // bumps per query → remounts the results grid
   const [online, setOnline] = useState(true);
+  const [theme, setTheme] = useState<"light" | "dark">(getInitialTheme);
+  const [history, setHistory] = useState<HistoryItem[]>(loadHistory);
+  const [schemaKey, setSchemaKey] = useState(0); // bumps when DB config changes → refreshes sidebar
+
+  // Sync theme attribute on document root
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("pg-connector-theme", theme);
+  }, [theme]);
 
   // Heartbeat: poll health; if the browser can't reach the backend, the badge
   // flips to "connection lost" (the honest signal when the VPN/network drops).
@@ -70,6 +105,15 @@ export default function App() {
       else r = await api.ask(value);
       setResult(r);
       setRunId((n) => n + 1);
+      // Save to history on success (deduplicate by value + mode, newest first)
+      setHistory((prev) => {
+        const next = [
+          { value, mode: m },
+          ...prev.filter((h) => !(h.value === value && h.mode === m)),
+        ].slice(0, MAX_HISTORY);
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+        return next;
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setResult(null);
@@ -101,6 +145,14 @@ export default function App() {
     execute(value, m, withAI);
   }
 
+  // Recall a history item: restore its mode, populate input, and execute.
+  function recallHistory(h: HistoryItem) {
+    setView("explorer");
+    setMode(h.mode);
+    setInput(h.value);
+    execute(h.value, h.mode, useAI);
+  }
+
   const aiOn = useAI && !!health?.aiEnabled && mode === "ask";
 
   return (
@@ -129,6 +181,13 @@ export default function App() {
             ? `● ${health.database} @ ${health.host}`
             : "● not connected"}
         </div>
+        <button
+          className="nav-toggle"
+          title={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
+          onClick={() => setTheme((t) => (t === "light" ? "dark" : "light"))}
+        >
+          {theme === "light" ? <IconMoon size={18} /> : <IconSun size={18} />}
+        </button>
       </header>
 
       <div className="layout">
@@ -168,7 +227,7 @@ export default function App() {
               </button>
             </div>
 
-            <SchemaSidebar onPick={pick} />
+            <SchemaSidebar onPick={pick} refreshKey={schemaKey} />
           </nav>
         )}
 
@@ -178,7 +237,12 @@ export default function App() {
             {view === "guide" ? (
               <Guide aiEnabled={!!health?.aiEnabled} onTry={tryExample} />
             ) : view === "config" ? (
-              <Config onSaved={() => api.health().then(setHealth).catch(() => {})} />
+              <Config
+                onSaved={() => {
+                  api.health().then(setHealth).catch(() => {});
+                  setSchemaKey((k) => k + 1);
+                }}
+              />
             ) : (
               <>
                 <div className="card">
@@ -237,6 +301,23 @@ export default function App() {
                     <IconPlayerPlayFilled size={15} style={{ verticalAlign: "-2px", marginRight: 6 }} />
                     {loading ? "Running…" : "Run  (Ctrl+Enter)"}
                   </button>
+
+                  {history.length > 0 && (
+                    <div className="quick">
+                      <span className="label">Recent:</span>
+                      {history.slice(0, 6).map((h, i) => (
+                        <button
+                          key={i}
+                          className={`filter-btn${h.mode === "sql" ? " history-sql" : ""}`}
+                          onClick={() => recallHistory(h)}
+                          title={`[${h.mode.toUpperCase()}] ${h.value}`}
+                        >
+                          {h.mode === "sql" && <span className="history-badge">SQL</span>}
+                          {h.value.length > 32 ? h.value.slice(0, 32) + "…" : h.value}
+                        </button>
+                      ))}
+                    </div>
+                  )}
 
                   <div className="quick">
                     <span className="label">Try:</span>

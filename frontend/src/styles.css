@@ -25,6 +25,8 @@
   --danger:  #b42318;  --danger-bg:  #fdecec;
   --info:    #2563eb;  --info-bg:    #e8f1fe;
 
+  --surface-hover: #fafbfc;
+
   --radius:    16px;
   --radius-sm: 10px;
   --shadow:    0 1px 2px rgba(16,24,40,.04), 0 1px 3px rgba(16,24,40,.06);
@@ -216,7 +218,7 @@ button.run:disabled { opacity: .6; cursor: default; transform: none; }
   max-width: 480px; overflow: hidden; text-overflow: ellipsis;
 }
 .link-table tbody tr:last-child td { border-bottom: none; }
-.link-table tbody tr:hover td { background: #fafbfc; }
+.link-table tbody tr:hover td { background: var(--surface-hover); }
 .link-table .rownum { color: var(--muted); text-align: right; user-select: none; font-family: var(--font-sans); width: 52px; min-width: 52px; max-width: 52px; }
 .null { color: var(--muted); font-style: italic; }
 
@@ -226,7 +228,7 @@ button.run:disabled { opacity: .6; cursor: default; transform: none; }
 .link-table .frozen-first { position: sticky; z-index: 2; background: var(--surface); box-shadow: 1px 0 0 var(--border); }
 .link-table thead th.frozen-first { z-index: 5; }
 .link-table tbody tr:hover td.frozen-num,
-.link-table tbody tr:hover td.frozen-first { background: #fafbfc; }
+.link-table tbody tr:hover td.frozen-first { background: var(--surface-hover); }
 
 /* Column resize handle (right edge of each header cell) */
 .link-table th.sortable { position: sticky; } /* keep sticky-top; handle is absolute within */
@@ -368,3 +370,52 @@ button.run:disabled { opacity: .6; cursor: default; transform: none; }
 .link-table th.sortable svg { vertical-align: -1px; margin-left: 4px; }
 .rt-pager { display: flex; align-items: center; gap: 8px; justify-content: center; padding-top: 2px; }
 .rt-pageinfo { font-size: 12px; color: var(--text-muted); font-weight: 600; margin: 0 6px; }
+
+/* ── History chips ─────────────────────────────────────────────────────────── */
+.filter-btn.history-sql { display: inline-flex; align-items: center; border-color: rgba(91,83,230,.25); }
+.history-badge {
+  font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+  background: var(--accent-soft); color: var(--accent);
+  padding: 1px 5px; border-radius: 4px; margin-right: 5px; line-height: 1.5; flex-shrink: 0;
+}
+
+/* ── Dark mode ─────────────────────────────────────────────────────────────── */
+[data-theme="dark"] {
+  --bg:             #0d1117;
+  --surface:        #161c2a;
+  --sidebar:        #13192a;
+  --surface-sunken: #0f1420;
+  --surface-hover:  #1e2840;
+  --border:         #2c3450;
+  --border-soft:    #232d46;
+
+  --text:          #dce6f5;
+  --text-muted:    #8895b0;
+  --muted:         #5a6880;
+
+  --primary:       #7b76f5;
+  --primary-dark:  #6a63ec;
+  --accent:        #7b76f5;
+  --accent-soft:   #1a1840;
+  --brand-grad:    linear-gradient(135deg, #7b76f5, #5e58e8);
+
+  --success: #4ade80;  --success-bg: #0a2218;
+  --warning: #fbbf24;  --warning-bg: #201600;
+  --danger:  #f87171;  --danger-bg:  #2a1010;
+  --info:    #60a5fa;  --info-bg:    #0a1b35;
+
+  --shadow: 0 1px 3px rgba(0,0,0,.3), 0 2px 6px rgba(0,0,0,.4);
+}
+
+/* Dark: fix hardcoded rgba focus rings */
+[data-theme="dark"] textarea:focus,
+[data-theme="dark"] .cfg-field input:focus,
+[data-theme="dark"] .cfg-field select:focus,
+[data-theme="dark"] .rt-filter:focus { box-shadow: 0 0 0 3px rgba(123,118,245,.22); }
+
+[data-theme="dark"] button.run { box-shadow: 0 2px 8px rgba(123,118,245,.40); }
+
+/* Dark: fix hardcoded border colors */
+[data-theme="dark"] .error-msg  { border-color: #4a1818; }
+[data-theme="dark"] .conn-result.ok  { border-color: #1a4030; }
+[data-theme="dark"] .conn-result.bad { border-color: #4a1818; }

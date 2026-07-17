@@ -4,14 +4,17 @@ import { api } from "../api";
 
 interface Props {
   onPick: (question: string) => void;
+  refreshKey?: number; // bump this to reload the table list (e.g. after DB config change)
 }
 
 // Lists tables as sidebar nav items; click previews rows, "cols" shows columns.
-export default function SchemaSidebar({ onPick }: Props) {
+export default function SchemaSidebar({ onPick, refreshKey }: Props) {
   const [tables, setTables] = useState<{ schema: string; name: string }[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    setTables([]);
+    setError(null);
     api
       .tables()
       .then((r) => {
@@ -25,7 +28,7 @@ export default function SchemaSidebar({ onPick }: Props) {
         );
       })
       .catch((e) => setError(e.message));
-  }, []);
+  }, [refreshKey]);
 
   return (
     <div className="nav-group">
